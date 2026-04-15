@@ -4,8 +4,8 @@ tiny pygame racing sim with a human drive mode and a live neuroevolution mode wh
 a track using NEAT and reinforcement learning concepts.
 
 
-
-![Neuroevolution Racing](assets/demo.gif)
+* gif is laggy *
+<img src="assets/demo.gif" width="400"> 
 
 
 
