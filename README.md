@@ -1,6 +1,13 @@
 ## ai racing sim
 
-tiny pygame racing sim with a human drive mode and a live neuroevolution mode (uses neat-python)
+tiny pygame racing sim with a human drive mode and a live neuroevolution mode where AI agents evolve to navigate
+a track using NEAT and reinforcement learning concepts.
+
+
+
+![Neuroevolution Racing](assets/demo.gif)
+
+
 
 # setup:
 
