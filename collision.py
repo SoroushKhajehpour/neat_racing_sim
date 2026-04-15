@@ -6,19 +6,18 @@ def car_center(x, y, w, h):
 
 
 def body_sample_points(cx, cy, w, h, angle_rad):
-
     cos_a = math.cos(angle_rad)
     sin_a = math.sin(angle_rad)
     half_w = w / 2
     half_h = h / 2
-    local = [
+    corners = [
         (-half_w, -half_h),
         (half_w, -half_h),
         (-half_w, half_h),
         (half_w, half_h),
     ]
     points = [(cx, cy)]
-    for lx, ly in local:
+    for lx, ly in corners:
         px = cx + lx * cos_a - ly * sin_a
         py = cy + lx * sin_a + ly * cos_a
         points.append((px, py))
@@ -26,7 +25,6 @@ def body_sample_points(cx, cy, w, h, angle_rad):
 
 
 def is_car_on_road(x, y, w, h, angle_rad, track):
- 
     cx, cy = car_center(x, y, w, h)
     for px, py in body_sample_points(cx, cy, w, h, angle_rad):
         if not track.is_on_road(px, py):

@@ -1,91 +1,113 @@
-import math
+import argparse
+import os
+import sys
 
 import pygame
 
 import settings
-from collision import is_car_on_road
+from algorithms import human
+from algorithms.neuroevolution import run_neat_live
+from env import RacingEnv
 from track import Track
+from ui import action_button_rect, draw_action_button
+
+WINDOW_SIZE = (720, 720)
 
 
-def draw_car(screen, x, y, w, h, angle_rad):
- 
-    cx, cy = x + w / 2, y + h / 2
-    car_surface = pygame.Surface((w, h), pygame.SRCALPHA)
-    car_surface.fill((220, 50, 50))
-    # Surface is drawn along +x; rotate so that axis aligns with (cos(angle), sin(angle)).
-    rotated = pygame.transform.rotate(car_surface, -math.degrees(angle_rad))
-    rect = rotated.get_rect(center=(cx, cy))
-    screen.blit(rotated, rect)
+def run_human_mode(neat_generations: int = 100) -> None:
+    pygame.init()
+    screen = pygame.display.set_mode(WINDOW_SIZE)
+    clock = pygame.time.Clock()
+    button_font = pygame.font.SysFont(None, 22)
+
+    env = RacingEnv()
+    state = env.reset()
+
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if action_button_rect(screen.get_width()).collidepoint(event.pos):
+                    next_mode = run_neat_live(
+                        screen,
+                        clock,
+                        env.track,
+                        max_generations=neat_generations,
+                    )
+                    if next_mode == "demo":
+                        state = env.reset()
+                    else:
+                        running = False
+        if not running:
+            break
+
+        action = human.get_action(state)
+        state, _, done = env.step(action)
+
+        env.render(screen)
+        if done:
+            state = env.reset()
+
+        draw_action_button(
+            screen,
+            button_font,
+            "Run Neuroevolution",
+            pygame.mouse.get_pos(),
+        )
+
+        pygame.display.flip()
+        clock.tick(settings.FPS)
+
+    pygame.quit()
 
 
-pygame.init()
-screen = pygame.display.set_mode((720, 720))
-clock = pygame.time.Clock()
-font = pygame.font.SysFont(None, 26)
+def run_neat(max_generations: int) -> None:
+    next_mode = "quit"
+    pygame.init()
+    screen = pygame.display.set_mode(WINDOW_SIZE)
+    clock = pygame.time.Clock()
+    track = Track()
+    try:
+        next_mode = run_neat_live(screen, clock, track, max_generations=max_generations)
+    finally:
+        pygame.quit()
 
-track = Track()
+    if next_mode == "demo":
+        run_human_mode(neat_generations=max_generations)
 
-x = settings.SPAWN_X
-y = settings.SPAWN_Y
-angle = settings.INITIAL_ANGLE
-speed = 0.0
-crash_count = 0
 
-running = True
-while running: 
+def main(argv=None) -> None:
+    argv = argv if argv is not None else sys.argv[1:]
+    default_mode = os.environ.get("RACING_MODE", "demo").lower()
+    if default_mode not in ("demo", "neat"):
+        default_mode = "demo"
 
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
+    parser = argparse.ArgumentParser(description="AI racing sim: demo or NEAT mode.")
+    parser.add_argument(
+        "mode",
+        nargs="?",
+        default=default_mode,
+        choices=("demo", "neat"),
+        help="demo: single car + driver; neat: live neuroevolution (default: %(default)s or RACING_MODE)",
+    )
+    parser.add_argument(
+        "-g",
+        "--generations",
+        type=int,
+        default=100,
+        dest="neat_generations",
+        metavar="N",
+        help="neat mode only: max generations (default: 100)",
+    )
+    args = parser.parse_args(argv)
 
-    keys = pygame.key.get_pressed()
-    if keys[pygame.K_UP]:
-        speed += settings.ACCELERATION
-    if keys[pygame.K_DOWN]:
-        speed -= settings.BRAKE
-    if keys[pygame.K_LEFT]:
-        angle -= settings.TURN_SPEED
-    if keys[pygame.K_RIGHT]:
-        angle += settings.TURN_SPEED
-
-    speed *= settings.FRICTION
-    speed = max(-settings.MAX_REVERSE_SPEED, min(settings.MAX_SPEED, speed))
-
-    vx = speed * math.cos(angle)
-    vy = speed * math.sin(angle)
-    x_new = x + vx
-    y_new = y + vy
-
-    if is_car_on_road(
-        x_new,
-        y_new,
-        settings.CAR_WIDTH,
-        settings.CAR_HEIGHT,
-        angle,
-        track,
-    ):
-        x, y = x_new, y_new
+    if args.mode == "demo":
+        run_human_mode(neat_generations=args.neat_generations)
     else:
-        x = settings.SPAWN_X
-        y = settings.SPAWN_Y
-        angle = settings.INITIAL_ANGLE
-        speed = 0.0
-        crash_count += 1
+        run_neat(max_generations=args.neat_generations)
 
-    track.draw(screen)
-    draw_car(screen, x, y, settings.CAR_WIDTH, settings.CAR_HEIGHT, angle)
 
-    hud_lines = [
-        f"x: {x:.1f}  y: {y:.1f}",
-        f"speed: {speed:.2f}",
-        f"angle: {math.degrees(angle):.1f} deg",
-        f"crashes: {crash_count}",
-    ]
-    for i, line in enumerate(hud_lines):
-        text = font.render(line, True, (255, 255, 255))
-        screen.blit(text, (10, 10 + i * 28))
-
-    pygame.display.flip()
-    clock.tick(settings.FPS)
-
-pygame.quit()
+if __name__ == "__main__":
+    main()
